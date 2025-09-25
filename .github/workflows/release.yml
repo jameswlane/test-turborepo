@@ -60,7 +60,7 @@ jobs:
         continue-on-error: true  # Continue even if tests fail for testing purposes
 
       - name: Run Turbo GoReleaser
-        uses: jameswlane/turbo-goreleaser@v1
+        uses: jameswlane/turbo-goreleaser@v1.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
