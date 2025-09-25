@@ -1,0 +1,24 @@
+{
+  "name": "test-sdk",
+  "private": true,
+  "version": "0.0.0-development",
+  "description": "",
+  "main": "main.go",
+  "scripts": {
+    "build": "echo \"Info: no build specified\" && exit 0",
+    "test": "echo \"Info: no test specified\" && exit 0",
+    "dev": "echo \"Info: no dev specified\" && exit 0",
+    "lint": "golangci-lint run",
+    "download": "go mod download",
+    "mod": "go mod tidy"
+  },
+  "keywords": [],
+  "author": "DevEx Team",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jameswlane/test-turborepo",
+    "directory": "packages/test-sdk"
+  },
+  "packageManager": "pnpm@10.17.0"
+}

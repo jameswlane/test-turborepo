@@ -4,18 +4,39 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [
+        "bin/**"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "cmd/**",
+        "*.go",
+        "go.mod",
+        "go.sum",
+        "package.json"
+      ],
+      "env": [
+        "GOOS",
+        "GOARCH",
+        "CGO_ENABLED",
+        ".env*"
+      ]
     },
     "lint": {
       "dependsOn": ["^lint"]
     },
-    "check-types": {
-      "dependsOn": ["^check-types"]
-    },
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "download": {
+      "inputs": ["go.mod", "go.sum"],
+      "cache": false
+    },
+    "mod": {
+      "inputs": ["go.mod"],
+      "outputs": ["go.sum"],
+      "cache": true
     }
   }
 }

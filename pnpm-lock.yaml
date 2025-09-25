@@ -12,6 +12,18 @@ importers:
         specifier: ^2.5.8
         version: 2.5.8
 
+  apps/cli: {}
+
+  packages/desktop-test: {}
+
+  packages/package-manager-test: {}
+
+  packages/system-test: {}
+
+  packages/test-sdk: {}
+
+  packages/tool-test: {}
+
 packages:
 
   turbo-darwin-64@2.5.8:
