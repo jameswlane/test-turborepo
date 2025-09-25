@@ -1,0 +1,37 @@
+version: 2
+
+project_name: test-turborepo
+
+# This is a root configuration for the monorepo
+# It can be used if there are any root-level Go modules
+# Currently, all Go modules are in apps/ and packages/
+
+monorepo:
+  tag_prefix: v
+  dir: .
+
+skip:
+  # Skip builds since we don't have a root Go module
+  build: true
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+  groups:
+    - title: Features
+      regexp: "^feat"
+      order: 0
+    - title: Bug Fixes
+      regexp: "^fix"
+      order: 1
+    - title: Others
+      order: 999
+
+# Note: This configuration is primarily for reference
+# The actual releases will be handled by the individual
+# .goreleaser.yaml files in each app/package directory

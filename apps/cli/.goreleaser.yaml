@@ -1,0 +1,69 @@
+version: 2
+
+project_name: cli
+
+monorepo:
+  tag_prefix: cli/
+  dir: apps/cli
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: cli
+    binary: cli
+    dir: .
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: cli-archive
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+  groups:
+    - title: Features
+      regexp: "^feat"
+      order: 0
+    - title: Bug Fixes
+      regexp: "^fix"
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: jameswlane
+    name: test-turborepo
+  name_template: "{{ .ProjectName }} v{{ .Version }}"
+  draft: false
+  prerelease: auto

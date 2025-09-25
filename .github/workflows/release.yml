@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Run in dry-run mode'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  release:
+    name: Release Packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for change detection
+
+      - name: Setup mise
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Setup Turbo
+        run: pnpm add -g turbo
+
+      - name: Run tests
+        run: |
+          echo "Running tests..."
+          turbo run test --if-present
+        continue-on-error: true  # Continue even if tests fail for testing purposes
+
+      - name: Run Turbo GoReleaser
+        uses: jameswlane/turbo-goreleaser@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
+          turbo-token: ${{ secrets.TURBO_TOKEN }}
+          turbo-team: ${{ vars.TURBO_TEAM }}
+          release-type: all
+          tag-format: slash
+          conventional-commits: 'true'
+          dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-artifacts
+          path: |
+            **/dist/
+            **/.goreleaser.generated.yml
+            **/.goreleaser.yml
+          retention-days: 7
