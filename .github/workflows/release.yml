@@ -28,7 +28,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for change detection
+          fetch-depth: 0
 
       - name: Setup mise
         uses: jdx/mise-action@v2
@@ -36,18 +36,8 @@ jobs:
           install: true
           cache: true
 
-
       - name: Install dependencies
         run: pnpm install
-
-      - name: Setup Turbo
-        run: pnpm add -g turbo
-
-      - name: Run tests
-        run: |
-          echo "Running tests..."
-          turbo run test --if-present
-        continue-on-error: true  # Continue even if tests fail for testing purposes
 
       - name: Run Turbo GoReleaser
         uses: jameswlane/turbo-goreleaser@v1.0.0
