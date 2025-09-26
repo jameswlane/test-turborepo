@@ -6,38 +6,12 @@ monorepo:
   tag_prefix: test-sdk/
   dir: packages/test-sdk
 
+gomod:
+  proxy: true
+
 before:
   hooks:
     - go mod tidy
-
-builds:
-  - id: test-sdk
-    binary: test-sdk
-    dir: .
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - windows
-    goarch:
-      - amd64
-      - arm64
-    ldflags:
-      - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
-
-archives:
-  - id: test-sdk-archive
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    format_overrides:
-      - goos: windows
-        format: zip
-
-checksum:
-  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
 
 snapshot:
   version_template: "{{ .Tag }}-next"
