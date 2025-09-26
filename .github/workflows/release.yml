@@ -57,7 +57,7 @@ jobs:
         with:
           name: release-artifacts
           path: |
-            **/dist/
+            **/bin/
             **/.goreleaser.generated.yml
             **/.goreleaser.yml
           retention-days: 7
