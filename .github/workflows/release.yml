@@ -43,8 +43,8 @@ jobs:
       - name: Install JS deps
         run: pnpm install
 
-      - name: Pre generate Release Please config & manifest
-        run: node scripts/release/pre.mjs
+#      - name: Pre generate Release Please config & manifest
+#        run: node scripts/release/pre.mjs
 
       - uses: googleapis/release-please-action@v4
         id: release
@@ -53,6 +53,14 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           skip-github-pull-request: true
+          include-component-in-tag: true
+          skip-labeling: true
+
+      - name: Debug RP outputs
+        run: |
+          echo "releases_created = ${{ steps.release.outputs.releases_created }}"
+          echo "paths_released   = ${{ steps.release.outputs.paths_released }}"
+          echo "cli tag          = ${{ steps.release.outputs['apps/cli--tag_name'] }}"
 
       - uses: actions/checkout@v4
         if: ${{ steps.release.outputs['apps/cli--release_created'] }}
