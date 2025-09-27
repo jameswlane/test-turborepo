@@ -4,16 +4,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      dry-run:
-        description: 'Run in dry-run mode'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
 
 jobs:
   release:
@@ -39,25 +29,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run Turbo GoReleaser
-        uses: jameswlane/turbo-goreleaser@v1
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
-          turbo-token: ${{ secrets.TURBO_TOKEN }}
-          turbo-team: ${{ vars.TURBO_TEAM }}
-          release-type: all
-          tag-format: slash
-          conventional-commits: 'true'
-          dry-run: ${{ github.event.inputs.dry-run || 'false' }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: release-artifacts
-          path: |
-            **/bin/
-            **/.goreleaser.generated.yml
-            **/.goreleaser.yml
-          retention-days: 7
+          distribution: goreleaser-pro
+          version: "latest"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
