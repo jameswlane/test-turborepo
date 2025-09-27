@@ -1,0 +1,33 @@
+{
+  "include-v-in-tag": true,
+  "include-component-in-tag": true,
+  "tag-separator": "@",
+  "packages": {
+    "apps/cli": {
+      "release-type": "go",
+      "include-component-in-tag": false
+    },
+
+    "packages/desktop-test": {
+      "release-type": "go",
+      "component": "@plugin/desktop-test"
+    },
+    "packages/package-manager-test": {
+      "release-type": "go",
+      "component": "@plugin/package-manager-test"
+    },
+    "packages/system-test": {
+      "release-type": "go",
+      "component": "@plugin/system-test"
+    },
+    "packages/tool-test": {
+      "release-type": "go",
+      "component": "@plugin/tool-test"
+    },
+
+    "packages/test-sdk": {
+      "release-type": "go",
+      "component": "packages/test-sdk"
+    }
+  }
+}

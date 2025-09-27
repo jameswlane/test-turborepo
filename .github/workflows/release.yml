@@ -1,24 +1,156 @@
 name: Release
-
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  packages: write
 
 jobs:
-  release:
-    name: Release Packages
+  rp:
+    name: Release Please
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-      pull-requests: write
-      issues: write
+    outputs:
+      matrix: ${{ steps.mk-matrix.outputs.matrix }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Generate release-please-config.json
+        id: gen-config
+        run: |
+          # Derive packages dynamically:
+          # - apps/cli => no component in tag (plain vX.Y.Z)
+          # - packages/test-sdk => component "packages/test-sdk"
+          # - all other packages/* => component "@plugin/<basename>"
+          echo '{}' | jq '
+            . + {
+              "include-v-in-tag": true,
+              "include-component-in-tag": true,
+              "tag-separator": "@",
+              "packages": (
+                {
+                  "apps/cli": { "release-type": "go", "include-component-in-tag": false }
+                }
+                + ( [inputs] | add )
+              )
+            }
+          ' > /tmp/_hdr.json
+
+          # Build per-package map in jq via bash globs
+          TMP=/tmp/_pkgs.json
+          echo '{}' > "$TMP"
+
+          # apps/cli handled in header; add other packages:
+          for d in packages/* ; do
+            [ -d "$d" ] || continue
+            base="$(basename "$d")"
+            if [ "$base" = "test-sdk" ]; then
+              comp="packages/test-sdk"
+            else
+              comp="@plugin/${base}"
+            fi
+            # Merge this package into the jq map
+            echo "{\"$d\":{\"release-type\":\"go\",\"component\":\"$comp\"}}" \
+              | jq -s 'add' "$TMP" - > "$TMP"
+          done
+
+          # Stitch header + packages
+          jq -s '.[0] as $h | .[1] as $p | ($h | .packages = ($p))' /tmp/_hdr.json "$TMP" > release-please-config.json
+
+          # Bootstrap manifest if missing
+          if [ ! -f .release-please-manifest.json ]; then
+            echo "{}" > .release-please-manifest.json
+            echo "0.1.0" > /tmp/_v.txt
+            jq -n '
+              { "apps/cli":"0.1.0" }
+            ' > /tmp/_manifest.json
+            for d in packages/* ; do
+              [ -d "$d" ] || continue
+              jq --arg path "$d" --arg v "0.1.0" '. + {($path): $v}' /tmp/_manifest.json > /tmp/_manifest2.json && mv /tmp/_manifest2.json /tmp/_manifest.json
+            done
+            mv /tmp/_manifest.json .release-please-manifest.json
+          fi
+
+          echo "Generated release-please-config.json:"
+          cat release-please-config.json
+
+      - uses: googleapis/release-please-action@v4
+        id: release
         with:
-          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - uses: actions/checkout@v4
+        if: ${{ steps.release.outputs['apps/cli--release_created'] }}
+        
+      - name: tag major and minor versions
+        if: ${{ steps.release.outputs['apps/cli--release_created'] }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          MAJOR="${{ steps.release.outputs['apps/cli--major'] }}"
+          MINOR="${{ steps.release.outputs['apps/cli--minor'] }}"
+          git tag -d "v${MAJOR}" || true
+          git tag -d "v${MAJOR}.${MINOR}" || true
+          git push origin ":v${MAJOR}" || true
+          git push origin ":v${MAJOR}.${MINOR}" || true
+          git tag -a "v${MAJOR}" -m "v${MAJOR}"
+          git tag -a "v${MAJOR}.${MINOR}" -m "v${MAJOR}.${MINOR}"
+          git push origin "v${MAJOR}"
+          git push origin "v${MAJOR}.${MINOR}"
+
+      - name: Build dynamic matrix from paths_released
+        id: mk-matrix
+        run: |
+          PR="${{ steps.release.outputs.prs_created }}"
+          PATHS='${{ steps.release.outputs.paths_released }}'
+          # When nothing released, ensure empty matrix
+          if [ -z "$PATHS" ] || [ "$PATHS" = "[]" ]; then
+            echo '{"include":[]}' > /tmp/matrix.json
+            echo "matrix=$(cat /tmp/matrix.json)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Convert released paths -> matrix objects
+          # For each path P:
+          # - resolve component name (same rule as above)
+          # - set per-component GoReleaser config path: P/.goreleaser.pro.yaml
+          jq --argjson paths "$PATHS" -n '
+            [ $paths[] | {
+                path: .,
+                name: ( . | gsub("^.*/";"") ),
+                component: (
+                  if . == "apps/cli" then ""         # root app: plain vX.Y.Z
+                  elif . == "packages/test-sdk" then "packages/test-sdk"
+                  else "@plugin/" + ( . | split("/")[-1] )
+                  end
+                ),
+                config: ( . + "/.goreleaser.pro.yaml" )
+              }
+            ] | { include: . }
+          ' > /tmp/matrix.json
+
+          echo "matrix=$(cat /tmp/matrix.json)" >> "$GITHUB_OUTPUT"
+          echo "Matrix:"
+          cat /tmp/matrix.json
+
+  goreleaser:
+    name: GoReleaser Pro
+    needs: rp
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.rp.outputs.matrix) }}
+    if: ${{ always() && matrix.include && (join(matrix.include, '') != '') }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
 
       - name: Setup mise
         uses: jdx/mise-action@v2
@@ -26,15 +158,43 @@ jobs:
           install: true
           cache: true
 
-      - name: Install dependencies
-        run: pnpm install
+      - name: Install JS deps (if needed)
+        run: |
+          if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile || pnpm install; fi
 
-      - name: Run GoReleaser
+      - name: Resolve tag for this component
+        id: tag
+        run: |
+          git fetch --tags --force
+          PATH_DIR='${{ matrix.include.path }}'
+          COMPONENT='${{ matrix.include.component }}'
+          if [ "$COMPONENT" = "" ]; then
+            # apps/cli => tags like vX.Y.Z
+            TAG="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)"
+          else
+            # componented tags => <component>@vX.Y.Z
+            PATTERN="${COMPONENT}@v[0-9]*.[0-9]*.[0-9]*"
+            TAG="$(git tag -l "$PATTERN" --sort=-v:refname | head -n1)"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "No tag found for $COMPONENT ($PATH_DIR). Skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Checkout tag
+        if: ${{ steps.tag.outputs.skip != 'true' }}
+        run: |
+          git checkout -b "build/${{ matrix.include.name }}" "refs/tags/${{ steps.tag.outputs.tag }}"
+
+      - name: Run GoReleaser Pro
+        if: ${{ steps.tag.outputs.skip != 'true' }}
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro
           version: "~> v2"
-          args: release --clean
+          args: release --clean --config "${{ matrix.include.config }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
