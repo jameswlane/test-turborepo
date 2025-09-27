@@ -1,8 +1,8 @@
 {
-  "apps/cli": "0.1.0",
-  "packages/desktop-test": "0.1.0",
-  "packages/package-manager-test": "0.1.0",
-  "packages/system-test": "0.1.0",
-  "packages/tool-test": "0.1.0",
-  "packages/test-sdk": "0.1.0"
+  "apps/cli": "0.0.0",
+  "packages/desktop-test": "0.0.0",
+  "packages/package-manager-test": "0.0.0",
+  "packages/system-test": "0.0.0",
+  "packages/tool-test": "0.0.0",
+  "packages/test-sdk": "0.0.0"
 }
